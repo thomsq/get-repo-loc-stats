@@ -104,33 +104,58 @@ class GitHubPRFileAnalyzer:
                 return []
             
             page_prs = response.json()
+            print(f"  Retrieved {len(page_prs)} PRs on page {page}")
             if not page_prs:
                 break
             
             # Filter PRs by author and date
             filtered_prs = []
+            should_stop = False
             for pr in page_prs:
+                pr_num = pr['number']
+                pr_author = pr['user']['login']
+                pr_draft = pr.get('draft', False)
+                pr_merged = pr.get('merged_at') is not None
+                
                 # Check if PR is by the specified author
-                if pr['user']['login'].lower() == author.lower():
+                if pr_author.lower() == author.lower():
+                    print(f"    PR #{pr_num} by {pr_author} - checking filters...")
+                    
                     # Check if PR was created after the specified date
                     created_at = datetime.fromisoformat(pr['created_at'].replace('Z', '+00:00'))
                     since_datetime = datetime.fromisoformat(since_date.replace('Z', '+00:00'))
                     
                     if created_at >= since_datetime:
+                        print(f"      ✓ Date OK: {pr['created_at']}")
+                        
                         # Filter by merged status if merged_only is True
-                        if merged_only and not pr.get('merged_at'):
+                        if merged_only and not pr_merged:
+                            print(f"      ✗ Filtered out: Not merged (merged_only={merged_only})")
                             continue
+                        else:
+                            print(f"      ✓ Merge status OK: merged={pr_merged}")
                         
                         # Filter out draft PRs unless include_draft is True
-                        if not include_draft and pr.get('draft', False):
+                        if not include_draft and pr_draft:
+                            print(f"      ✗ Filtered out: Draft PR (include_draft={include_draft})")
                             continue
+                        else:
+                            print(f"      ✓ Draft status OK: draft={pr_draft}")
                         
+                        print(f"      ✅ PR #{pr_num} ADDED to results")
                         filtered_prs.append(pr)
                     else:
+                        print(f"      ✗ Too old: {pr['created_at']} < {since_date}")
                         # Since PRs are sorted by creation date (desc), we can stop here
-                        return pull_requests
+                        should_stop = True
+                        break
             
+            print(f"  {len(filtered_prs)} PRs matched filters on page {page}")
             pull_requests.extend(filtered_prs)
+            
+            # Stop pagination if we hit old PRs
+            if should_stop:
+                break
             page += 1
             
             # GitHub API pagination limit check
@@ -260,7 +285,13 @@ class GitHubPRFileAnalyzer:
                 'author': author,
                 'start_date': start_date,
                 'state_filter': state,
+                'merged_only': merged_only,
+                'include_draft': include_draft,
                 'total_prs': 0,
+                'total_files_changed': 0,
+                'total_additions': 0,
+                'total_deletions': 0,
+                'file_extension_stats': {},
                 'pull_requests': []
             }
         
@@ -282,6 +313,10 @@ class GitHubPRFileAnalyzer:
             
             # Get files changed in this PR
             files = self.get_pr_files(repo_owner, repo_name, pr['number'], include_patch)
+            
+            # Initialize counters (in case files is empty)
+            pr_additions = 0
+            pr_deletions = 0
             
             if files:
                 print(f"  Found {len(files)} files changed")
