@@ -1,4 +1,4 @@
-# GitHub Repository LOC Statistics Tool
+# GitHub Repository Statistics Tool
 
 This Python script retrieves Lines of Code (LOC) statistics for a specific GitHub repository and username starting from a specified date (default: 2025-01-01). It calculates the total changes (additions + deletions) for commits by the specified author.
 
