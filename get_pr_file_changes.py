@@ -56,7 +56,7 @@ class GitHubPRFileAnalyzer:
                 'Accept': 'application/vnd.github.v3+json'
             })
     
-    def get_pull_requests(self, repo_owner: str, repo_name: str, author: str, since_date: str, state: str = "all") -> List[Dict]:
+    def get_pull_requests(self, repo_owner: str, repo_name: str, author: str, since_date: str, state: str = "all", merged_only: bool = True, include_draft: bool = False) -> List[Dict]:
         """
         Get pull requests by a specific author since the given date
         
@@ -66,6 +66,8 @@ class GitHubPRFileAnalyzer:
             author: Author username to filter PRs
             since_date: ISO format date string (e.g., '2025-01-01T00:00:00Z')
             state: PR state filter ('open', 'closed', 'all')
+            merged_only: Filter to only merged PRs (default: True)
+            include_draft: Include draft PRs (default: False)
             
         Returns:
             List of pull request objects
@@ -115,6 +117,14 @@ class GitHubPRFileAnalyzer:
                     since_datetime = datetime.fromisoformat(since_date.replace('Z', '+00:00'))
                     
                     if created_at >= since_datetime:
+                        # Filter by merged status if merged_only is True
+                        if merged_only and not pr.get('merged_at'):
+                            continue
+                        
+                        # Filter out draft PRs unless include_draft is True
+                        if not include_draft and pr.get('draft', False):
+                            continue
+                        
                         filtered_prs.append(pr)
                     else:
                         # Since PRs are sorted by creation date (desc), we can stop here
@@ -127,7 +137,13 @@ class GitHubPRFileAnalyzer:
             if len(page_prs) < per_page:
                 break
         
-        print(f"Found {len(pull_requests)} PRs by {author} since {since_date}")
+        filter_desc = []
+        if merged_only:
+            filter_desc.append("merged")
+        if not include_draft:
+            filter_desc.append("non-draft")
+        filter_text = " ".join(filter_desc) if filter_desc else "all"
+        print(f"Found {len(pull_requests)} {filter_text} PRs by {author} since {since_date}")
         return pull_requests
     
     def get_pr_files(self, repo_owner: str, repo_name: str, pr_number: int, include_patch: bool = False) -> List[Dict]:
@@ -196,7 +212,8 @@ class GitHubPRFileAnalyzer:
     
     def analyze_pr_file_changes(self, repo_owner: str, repo_name: str, author: str, 
                                 start_date: str = "2025-01-01", state: str = "all",
-                                include_patch: bool = False, limit: Optional[int] = None) -> Dict:
+                                include_patch: bool = False, limit: Optional[int] = None,
+                                merged_only: bool = True, include_draft: bool = False) -> Dict:
         """
         Analyze file changes for Pull Requests in a repository
         
@@ -208,6 +225,8 @@ class GitHubPRFileAnalyzer:
             state: PR state filter ('open', 'closed', 'all')
             include_patch: Whether to include patch/diff content
             limit: Limit number of PRs to analyze (None for all)
+            merged_only: Filter to only merged PRs (default: True)
+            include_draft: Include draft PRs (default: False)
             
         Returns:
             Dictionary containing PR file change statistics
@@ -225,13 +244,15 @@ class GitHubPRFileAnalyzer:
         print(f"Author: {author}")
         print(f"Start date: {start_date}")
         print(f"State filter: {state}")
+        print(f"Merged only: {merged_only}")
+        print(f"Include draft: {include_draft}")
         print(f"Include patches: {include_patch}")
         if limit:
             print(f"PR limit: {limit}")
         print("-" * 70)
         
         # Get pull requests
-        prs = self.get_pull_requests(repo_owner, repo_name, author, since_date, state)
+        prs = self.get_pull_requests(repo_owner, repo_name, author, since_date, state, merged_only, include_draft)
         
         if not prs:
             return {
@@ -316,6 +337,8 @@ class GitHubPRFileAnalyzer:
             'author': author,
             'start_date': start_date,
             'state_filter': state,
+            'merged_only': merged_only,
+            'include_draft': include_draft,
             'total_prs': len(prs),
             'total_files_changed': total_files_changed,
             'total_additions': total_additions,
@@ -339,6 +362,8 @@ class GitHubPRFileAnalyzer:
         print(f"Author: {results['author']}")
         print(f"Analysis period: From {results['start_date']} to present")
         print(f"State filter: {results['state_filter']}")
+        print(f"Merged only: {results.get('merged_only', True)}")
+        print(f"Include draft: {results.get('include_draft', False)}")
         print("-" * 70)
         print(f"Total PRs analyzed: {results['total_prs']}")
         print(f"Total files changed: {results['total_files_changed']}")
@@ -416,6 +441,10 @@ GitHub Personal Access Token Required:
                       help='Include diff/patch content in output (makes output much larger)')
     parser.add_argument('--limit', type=int,
                       help='Limit number of PRs to analyze (useful for large result sets)')
+    parser.add_argument('--get-draft', action='store_true',
+                      help='Include draft PRs in analysis (default: exclude drafts)')
+    parser.add_argument('--all-prs', action='store_true',
+                      help='Include all PRs regardless of merge status (default: merged only)')
     
     args = parser.parse_args()
     
@@ -433,7 +462,9 @@ GitHub Personal Access Token Required:
         start_date=args.start_date,
         state=args.state,
         include_patch=args.include_patch,
-        limit=args.limit
+        limit=args.limit,
+        merged_only=not args.all_prs,
+        include_draft=args.get_draft
     )
     
     if results:
