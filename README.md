@@ -40,6 +40,11 @@ python3 get_repo_loc_stats.py <repo_owner> <repo_name> <author_username> --start
 python3 get_repo_loc_stats.py <repo_owner> <repo_name> <author_username> --output results.json
 ```
 
+### Get PRs on Specific Repo
+```bash
+python3 get_repo_prs.py <repo_owner> <repo_name> <author_username> --start-date 2025-01-01
+```
+
 ## Examples
 
 ### Example 1: Analyze a user's contributions to a repository and save result
