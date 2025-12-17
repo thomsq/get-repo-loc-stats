@@ -19,7 +19,7 @@ pip install requests
 ```
 
 ```bash
-export GITHUB_TOKEN=<your_github_token>
+export GITHUB_TOKEN=<your_pat_github_token>
 ```
 
 ## Usage
