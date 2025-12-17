@@ -18,6 +18,7 @@ This Python script retrieves Lines of Code (LOC) statistics for a specific GitHu
 pip install requests
 ```
 
+### Set Github Personal Access Token
 ```bash
 export GITHUB_TOKEN=<your_pat_github_token>
 ```
@@ -34,11 +35,6 @@ python3 get_repo_loc_stats.py <repo_owner> <repo_name> <author_username>
 python3 get_repo_loc_stats.py <repo_owner> <repo_name> <author_username> --start-date 2024-06-01
 ```
 
-### With GitHub Token (Recommended)
-```bash
-python3 get_repo_loc_stats.py <repo_owner> <repo_name> <author_username> --token YOUR_GITHUB_TOKEN
-```
-
 ### Save Results to JSON File
 ```bash
 python3 get_repo_loc_stats.py <repo_owner> <repo_name> <author_username> --output results.json
@@ -46,15 +42,11 @@ python3 get_repo_loc_stats.py <repo_owner> <repo_name> <author_username> --outpu
 
 ## Examples
 
-### Example 1: Analyze a user's contributions to a repository
+### Example 1: Analyze a user's contributions to a repository and save result
 ```bash
-python3 get_repo_loc_stats.py microsoft vscode username --start-date 2025-01-01
+python3 get_repo_loc_stats.py microsoft vscode username --start-date 2025-01-01 --output react_stats.json
 ```
 
-### Example 2: With GitHub token and save results
-```bash
-python3 get_repo_loc_stats.py facebook react username --token ghp_xxxxxxxxxxxx --output react_stats.json
-```
 
 ## Output
 
