@@ -5,6 +5,18 @@ GitHub Repository LOC (Lines of Code) Statistics Tool
 This script retrieves Lines of Code statistics for a specific repository and username
 starting from a specified date (default: 2025-01-01).
 It calculates the total changes (additions + deletions) for commits by the specified author.
+
+IMPORTANT: GitHub Personal Access Token (PAT) Required
+============================================
+To use this tool effectively, you need a GitHub Personal Access Token:
+
+1. Go to GitHub.com → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Select scopes: 'repo' (for private repos) or 'public_repo' (for public repos only)
+4. Copy the generated token
+5. Use it with the --token parameter or set it as an environment variable
+
+Without a PAT, you'll be limited to 60 API requests per hour and may not access private repositories.
 """
 
 import requests
@@ -12,6 +24,7 @@ import json
 from datetime import datetime, timezone
 import argparse
 import sys
+import os
 from typing import Dict, List, Optional, Tuple
 
 
@@ -23,11 +36,17 @@ class GitHubLOCAnalyzer:
         Initialize the GitHub LOC analyzer
         
         Args:
-            token: GitHub personal access token (optional but recommended for higher rate limits)
+            token: GitHub personal access token (required for reliable operation)
         """
         self.token = token
         self.base_url = "https://api.github.com"
         self.session = requests.Session()
+        
+        if not self.token:
+            print("⚠️  WARNING: No GitHub Personal Access Token provided!")
+            print("   You'll be limited to 60 requests/hour and cannot access private repos.")
+            print("   Get a PAT at: https://github.com/settings/tokens")
+            print("   Use --token parameter or set GITHUB_TOKEN environment variable\n")
         
         if self.token:
             self.session.headers.update({
@@ -68,7 +87,11 @@ class GitHubLOCAnalyzer:
                 print(f"Error: Repository {repo_owner}/{repo_name} not found or not accessible")
                 return []
             elif response.status_code == 403:
-                print("Error: API rate limit exceeded or access forbidden")
+                error_msg = "Error: API rate limit exceeded or access forbidden"
+                if not self.token:
+                    error_msg += "\n💡 Try using a GitHub Personal Access Token with --token parameter"
+                    error_msg += "\n   Get one at: https://github.com/settings/tokens"
+                print(error_msg)
                 return []
             elif response.status_code != 200:
                 print(f"Error fetching commits: {response.status_code} - {response.text}")
@@ -232,19 +255,36 @@ class GitHubLOCAnalyzer:
 
 def main():
     """Main function to run the LOC analyzer"""
-    parser = argparse.ArgumentParser(description='Analyze GitHub repository LOC statistics')
+    parser = argparse.ArgumentParser(
+        description='Analyze GitHub repository LOC statistics',
+        epilog='''
+GitHub Personal Access Token Required:
+  Get a token at: https://github.com/settings/tokens
+  Required scopes: 'repo' (private) or 'public_repo' (public only)
+  
+  Usage options:
+  1. Command line: --token YOUR_TOKEN_HERE
+  2. Environment: export GITHUB_TOKEN=YOUR_TOKEN_HERE
+  
+  Without a token, you're limited to 60 requests/hour.''',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument('repo_owner', help='Repository owner username')
     parser.add_argument('repo_name', help='Repository name')
     parser.add_argument('author', help='Author username to analyze')
     parser.add_argument('--start-date', default='2025-01-01', 
                       help='Start date in YYYY-MM-DD format (default: 2025-01-01)')
-    parser.add_argument('--token', help='GitHub personal access token')
+    parser.add_argument('--token', 
+                      help='GitHub Personal Access Token (or set GITHUB_TOKEN env var)')
     parser.add_argument('--output', help='Output file path to save results as JSON')
     
     args = parser.parse_args()
     
+    # Get token from args or environment
+    token = args.token or os.getenv('GITHUB_TOKEN')
+    
     # Initialize analyzer
-    analyzer = GitHubLOCAnalyzer(token=args.token)
+    analyzer = GitHubLOCAnalyzer(token=token)
     
     # Analyze repository
     results = analyzer.analyze_repo_loc(

@@ -18,6 +18,10 @@ This Python script retrieves Lines of Code (LOC) statistics for a specific GitHu
 pip install requests
 ```
 
+```bash
+export GITHUB_TOKEN=<your_github_token>
+```
+
 ## Usage
 
 ### Basic Usage
